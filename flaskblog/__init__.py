@@ -14,7 +14,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'si
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 Login_manager = LoginManager(app)
-Login_manager.login_view = 'Login'
+Login_manager.login_view = 'login_page'
 Login_manager.login_message_category = 'info'
 
 from flaskblog import routes
