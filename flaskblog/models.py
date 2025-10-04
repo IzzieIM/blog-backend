@@ -1,5 +1,6 @@
 #models
-from flaskblog import db , Login_manager
+from itsdangerous import URLSafeTimedSerializer as Serializer
+from flaskblog import db , Login_manager , app
 from datetime import datetime
 from flask_login import UserMixin
 
@@ -16,6 +17,26 @@ class User(db.Model , UserMixin):
     posts = db.relationship('Post' , backref = 'author' , lazy = True)
     # lazy = True means that the related objects are loaded only when they are accessed for the first time
     # how the user would be preinted in the shell
+
+
+
+    #this reset token help the user to create a token which will expire after certain time 
+    # and verify token is that the system verifies the token and sees if its valid and then return the user id 
+
+    def get_reset_token(self, expires_sec=1800):
+        s = Serializer(app.config['SECRET_KEY'])
+        return s.dumps({'user_id': self.id})
+
+    @staticmethod
+    def verify_reset_token( token , expires_sec=1800):
+        s = Serializer(app.config['SECRET_KEY'])
+        try:
+            user_id = s.loads(token, max_age=expires_sec)['user_id']
+        except: 
+            return None
+        return User.query.get(user_id)
+        
+
     def __repr__(self):
         return f"User('{self.username}' , '{self.email}' , '{self.image_file}')"
 
