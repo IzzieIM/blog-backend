@@ -2,27 +2,27 @@ import secrets , os
 from PIL import Image
 from flaskblog.models import User, Post
 from flaskblog import app , db , bcrypt
-from flask import render_template , url_for , flash , redirect , request
-from flaskblog.forms import RegistrationForm , LoginForm , UpdateAccountForm
+from flask import render_template , url_for , flash , redirect , request , abort
+from flaskblog.forms import RegistrationForm , LoginForm , UpdateAccountForm , PostForm
 from flask_login import login_user , logout_user , login_required , current_user
 #we moved it down because it failed earlier beacuse it havent seen the db variable yet , not that it has seen it itll no longer fail
 
 
-posts = [
-    {
-        'author' : 'Anusha Nikam',
-        'title' : 'Blog post 1',
-        'content' : 'this is my blog post 1',
-        'date' : 'April 20 , 2025'
-    },
-    {
-        'author' : 'Sahil Ranjan',
-        'title' : 'Blog post 2',
-        'content' : 'this is my blog post 2',
-        'date' : 'April 21 , 2025'
-    }
+# posts = [
+#     {
+#         'author' : 'Anusha Nikam',
+#         'title' : 'Blog post 1',
+#         'content' : 'this is my blog post 1',
+#         'date' : 'April 20 , 2025'
+#     },
+#     {
+#         'author' : 'Sahil Ranjan',
+#         'title' : 'Blog post 2',
+#         'content' : 'this is my blog post 2',
+#         'date' : 'April 21 , 2025'
+#     }
 
-]
+# ]
 
 @app.route("/")
 def hello_world():
@@ -34,6 +34,7 @@ def about_page():
 
 @app.route("/Home")
 def home_page():
+    posts = Post.query.all()
     return render_template('home.html' , posts = posts)
 
 @app.route("/Register" , methods = ['GET' , 'POST'])
@@ -109,3 +110,52 @@ def account_page():
     image_file = url_for('static' , filename = 'profile_pics/' + current_user.image_file)
     return render_template('account.html' , title = 'Account' , image_file = image_file , form = form)
 
+@app.route( "/Post/new" , methods = ['GET' , 'POST'])
+@login_required
+def new_post_page():
+    form = PostForm()
+    if form.validate_on_submit():
+        post = Post( title = form.title.data , content = form.content.data , author = current_user)
+        db.session.add(post)
+        db.session.commit()
+        flash("Your post has been created!" , 'success')
+        return redirect(url_for('home_page'))
+    return render_template('create_post.html' , title = 'New Post' , form = form)
+
+@app.route( "/Post/<int:post_id>")
+def post_page(post_id):
+    # this template tell us that give me the post with the given id or else give me 404 error 
+    post = Post.query.get_or_404(post_id)
+    return render_template('post.html' , title = post.title , post = post)
+
+@app.route( "/Post/<int:post_id>/update" , methods = ['GET' , 'POST'])
+@login_required
+def update_post_page(post_id):
+    post = Post.query.get_or_404(post_id)
+    if post.author != current_user:
+        abort(403)
+    form = PostForm()
+    if form.validate_on_submit():
+        post.title = form.title.data
+        post.content = form.content.data
+        # we dont need to add it to the session because its already in the session
+        db.session.commit()
+        flash( 'Your post has been updated!' , 'success')
+        return redirect( url_for( 'post_page' , post_id = post.id))
+    elif request.method == 'GET':
+        form.title.data = post.title
+        form.content.data = post.content
+    return render_template('create_post.html' , title = 'Update Post' , form = form)
+
+
+@app.route( "/Post/<int:post_id>/delete" , methods = ['POST'])
+@login_required
+def delete_post_page(post_id):
+    # this template tell us that give me the post with the given id or else give me 404 error 
+    post = Post.query.get_or_404(post_id)
+    if post.author != current_user:
+        abort(403)
+    db.session.delete(post)
+    db.session.commit()
+    flash( 'Your post has been deleted!' , 'success')
+    return redirect(url_for('home_page'))
